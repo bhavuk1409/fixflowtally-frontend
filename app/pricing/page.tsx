@@ -145,7 +145,7 @@ export default function PricingPage() {
             The right plan for your business
           </h1>
           <p className="mt-4 text-[16px] text-[#9BA7B4]">
-            Start free. Upgrade when you're ready. No hidden fees.
+            Start free. Upgrade when you&apos;re ready. No hidden fees.
           </p>
 
           {/* Billing toggle */}
