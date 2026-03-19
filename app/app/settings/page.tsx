@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useAppState } from "@/lib/store";
 import { useApi } from "@/lib/useApi";
-import { publicClient } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -293,7 +293,7 @@ export default function SettingsPage() {
   const handleHealthCheck = async () => {
     setConnStatus("checking");
     try {
-      await publicClient.get("/health");
+  await apiFetch("/health", { method: "GET" });
       setConnStatus("ok");
     } catch {
       setConnStatus("error");

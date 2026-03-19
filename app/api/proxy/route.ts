@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_BASE_URL = process.env.BACKEND_INTERNAL_URL || 'http://16.171.0.139:8000';
 
-export async function handleRequest(req: NextRequest) {
+async function proxy(req: NextRequest) {
   const url = req.nextUrl.searchParams.get('path') || '';
   const target = `${BACKEND_BASE_URL}${url.startsWith('/') ? url : `/${url}`}`;
 
@@ -32,17 +32,17 @@ export async function handleRequest(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  return handleRequest(req);
+  return proxy(req);
 }
 
 export async function POST(req: NextRequest) {
-  return handleRequest(req);
+  return proxy(req);
 }
 
 export async function PUT(req: NextRequest) {
-  return handleRequest(req);
+  return proxy(req);
 }
 
 export async function DELETE(req: NextRequest) {
-  return handleRequest(req);
+  return proxy(req);
 }
