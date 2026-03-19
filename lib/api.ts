@@ -1,3 +1,13 @@
+// ChatThread type for chat features
+export type ChatThread = {
+  id: string;
+  tenant_id: string;
+  company_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  messages: ChatMessage[];
+};
 // Proxy-based fetch helper for backend API calls
 export async function apiFetch(path: string, options: RequestInit = {}) {
   const url = `/api/proxy?path=${encodeURIComponent(path)}`;
