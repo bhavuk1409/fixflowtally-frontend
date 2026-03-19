@@ -7,14 +7,12 @@
 
 import { useAuth } from "@clerk/nextjs";
 import { useMemo } from "react";
-import { buildApi, createApiClient } from "./api";
+import { buildApi } from "./api";
 
 export function useApi() {
   const { getToken } = useAuth();
   return useMemo(() => {
-    const client = createApiClient(() => getToken());
-    const api = buildApi(client);
-    // Patch chat.stream with the getToken closure
+    const api = buildApi();
     return {
       ...api,
       chat: {
