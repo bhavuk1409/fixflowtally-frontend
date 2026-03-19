@@ -189,11 +189,45 @@ const STEPS = [
 // ── Download URLs ──────────────────────────────────────────────────────────
 const WIN_URL = process.env.NEXT_PUBLIC_CONNECTOR_WIN_URL ?? "";
 const MAC_URL = process.env.NEXT_PUBLIC_CONNECTOR_MAC_URL ?? "";
+const CONNECTOR_CLOCK_SKEW_TOLERANCE_MS = 2 * 60 * 60 * 1000; // 2h tolerance
+const SLOW_SYNC_HINT_AFTER_MS = 60 * 1000;
 
 function triggerDownload(url: string, filename: string) {
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.rel = "noopener noreferrer";
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+type ConnectorStatusSnapshot = {
+  status: string | null;
+  lastSeenAtMs: number | null;
+};
+
+function toMs(value?: string | null): number | null {
+  if (!value) return null;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function companyActivityMs(company: Company): number {
+  return Math.max(toMs(company.last_synced_at) ?? 0, toMs(company.created_at) ?? 0);
+}
+
+function mostRecentCompany(companies: Company[]): Company | null {
+  if (companies.length === 0) return null;
+  return [...companies].sort((a, b) => companyActivityMs(b) - companyActivityMs(a))[0] ?? null;
+}
+
+function isAuthOrValidationPollError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    msg.includes("VALIDATION_ERROR") ||
+    msg.includes("Bearer token required") ||
+    msg.includes("Token does not authorise") ||
+    msg.includes("401") ||
+    msg.includes("403") ||
+    msg.includes("422")
+  );
 }
 
 // ── Main page ──────────────────────────────────────────────────────────────
@@ -210,7 +244,11 @@ export default function ConnectPage() {
   const pairPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectorPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastConnectorStatusRef = useRef<string | null>(null);
+  const lastConnectorRef = useRef<ConnectorStatusSnapshot>({ status: null, lastSeenAtMs: null });
+  const initialCompanyIdsRef = useRef<Set<string> | null>(null);
+  const slowSyncHintShownRef = useRef(false);
+  const connectorPollErrorShownRef = useRef(false);
+  const syncPollErrorShownRef = useRef(false);
 
   // Disconnect: clear state and localStorage
   const handleDisconnectConfirmed = useCallback(() => {
@@ -220,6 +258,10 @@ export default function ConnectPage() {
     setPairingData(null);
     setCodeExpired(false);
     setCompanyId("");
+    initialCompanyIdsRef.current = null;
+    slowSyncHintShownRef.current = false;
+    connectorPollErrorShownRef.current = false;
+    syncPollErrorShownRef.current = false;
     toast.success("Tally disconnected successfully.");
   }, [setCompanyId]);
 
@@ -236,23 +278,26 @@ export default function ConnectPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Connector sync status polling (only when connected) ──────────────
+  // ── Connector sync status polling (starts immediately after pairing) ──
   useEffect(() => {
-    if (!syncedCompany) {
+    if (!paired && !syncedCompany) {
       if (connectorPollRef.current) {
         clearInterval(connectorPollRef.current);
         connectorPollRef.current = null;
       }
-      lastConnectorStatusRef.current = null;
+      lastConnectorRef.current = { status: null, lastSeenAtMs: null };
       return;
     }
 
     const poll = async () => {
       try {
         const res = await api.connector.status(tenantId);
-        const { status, error_message } = res.data;
-        const prev = lastConnectorStatusRef.current;
-        lastConnectorStatusRef.current = status;
+        const { status, error_message, last_seen_at } = res.data;
+        const prev = lastConnectorRef.current.status;
+        lastConnectorRef.current = {
+          status,
+          lastSeenAtMs: toMs(last_seen_at),
+        };
 
         // Only toast when status transitions TO "error" (not every poll tick)
         if (status === "error" && prev !== "error") {
@@ -265,8 +310,11 @@ export default function ConnectPage() {
         } else if (status === "ok" && prev === "error") {
           toast.success("Tally sync restored!", { id: "connector-sync-error" });
         }
-      } catch {
-        // silently ignore polling errors
+      } catch (err) {
+        if (!connectorPollErrorShownRef.current && isAuthOrValidationPollError(err)) {
+          connectorPollErrorShownRef.current = true;
+          toast.error("Connector status check failed (auth). Refresh the page and sign in again.");
+        }
       }
     };
 
@@ -278,8 +326,7 @@ export default function ConnectPage() {
         connectorPollRef.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [syncedCompany, tenantId]);
+  }, [api, paired, syncedCompany, tenantId]);
 
   // ── Phase 1: poll /pair/status until the code is exchanged ───────────
   const startPairPolling = useCallback((code: string) => {
@@ -304,28 +351,73 @@ export default function ConnectPage() {
   }, [api]);
 
   // ── Phase 2: poll /tenants/.../companies until data arrives ──────────
+  const markSynced = useCallback((company: Company) => {
+    if (syncPollRef.current) {
+      clearInterval(syncPollRef.current);
+      syncPollRef.current = null;
+    }
+    setSyncedCompany(company);
+    setCompanyId(company.id);
+    toast.success(`${company.name} connected and synced!`);
+  }, [setCompanyId]);
+
   const startSyncPolling = useCallback((codeGeneratedAt: number) => {
     if (syncPollRef.current) clearInterval(syncPollRef.current);
     syncPollRef.current = setInterval(async () => {
       try {
         const res = await api.companies.list(tenantId);
-        const companies = res.data.companies;
-        const freshCompany = companies.find((c: Company) => {
-          if (!c.last_synced_at) return false;
-          return new Date(c.last_synced_at).getTime() > codeGeneratedAt;
-        });
+        const companies: Company[] = res.data.companies ?? [];
+        const initialCompanyIds = initialCompanyIdsRef.current;
+        const freshnessFloor = codeGeneratedAt - CONNECTOR_CLOCK_SKEW_TOLERANCE_MS;
+
+        const newCompany =
+          initialCompanyIds && companies.length > 0
+            ? mostRecentCompany(companies.filter((c) => !initialCompanyIds.has(c.id)))
+            : null;
+
+        const freshCompany = newCompany ?? mostRecentCompany(
+          companies.filter((c) => companyActivityMs(c) >= freshnessFloor),
+        );
+
         if (freshCompany) {
-          clearInterval(syncPollRef.current!);
-          syncPollRef.current = null;
-          setSyncedCompany(freshCompany);
-          setCompanyId(freshCompany.id);
-          toast.success(`${freshCompany.name} connected and synced!`);
+          markSynced(freshCompany);
+          return;
         }
-      } catch {
-        // silently ignore poll errors
+
+        const heartbeat = lastConnectorRef.current;
+        const heartbeatRecent =
+          heartbeat.lastSeenAtMs !== null &&
+          heartbeat.lastSeenAtMs >= freshnessFloor;
+        if (heartbeat.status === "ok" && heartbeatRecent) {
+          const fallback = mostRecentCompany(companies);
+          if (fallback) {
+            markSynced(fallback);
+            return;
+          }
+        }
+
+        if (
+          !slowSyncHintShownRef.current &&
+          Date.now() - codeGeneratedAt >= SLOW_SYNC_HINT_AFTER_MS
+        ) {
+          slowSyncHintShownRef.current = true;
+          toast.info(
+            "Initial sync is taking longer than usual. Keep the connector open and Tally running.",
+            { duration: 7000 },
+          );
+        }
+      } catch (err) {
+        if (!syncPollErrorShownRef.current && isAuthOrValidationPollError(err)) {
+          syncPollErrorShownRef.current = true;
+          if (syncPollRef.current) {
+            clearInterval(syncPollRef.current);
+            syncPollRef.current = null;
+          }
+          toast.error("Sync status check failed (auth). Refresh, generate a new pairing code, and retry.");
+        }
       }
     }, 3000);
-  }, [api, tenantId, setCompanyId]);
+  }, [api, markSynced, tenantId]);
 
   // ── When pairing confirmed, start sync polling ────────────────────────
   const generatedAtRef = useRef<number>(0);
@@ -354,11 +446,22 @@ export default function ConnectPage() {
   const generate = useMutation({
     mutationFn: async () => {
       const generatedAt = Date.now();
-      const res = await api.pair.create(tenantId);
-      return { pairData: res.data, generatedAt };
+      const [pairRes, companiesRes] = await Promise.all([
+        api.pair.create(tenantId),
+        api.companies.list(tenantId).catch(() => null),
+      ]);
+      const initialCompanyIds = companiesRes
+        ? new Set<string>((companiesRes.data.companies ?? []).map((c: Company) => c.id))
+        : null;
+      return { pairData: pairRes.data, generatedAt, initialCompanyIds };
     },
-    onSuccess: ({ pairData, generatedAt }) => {
+    onSuccess: ({ pairData, generatedAt, initialCompanyIds }) => {
       generatedAtRef.current = generatedAt;
+      initialCompanyIdsRef.current = initialCompanyIds;
+      slowSyncHintShownRef.current = false;
+      lastConnectorRef.current = { status: null, lastSeenAtMs: null };
+      connectorPollErrorShownRef.current = false;
+      syncPollErrorShownRef.current = false;
       setPairingData(pairData);
       setCodeExpired(false);
       setPaired(false);

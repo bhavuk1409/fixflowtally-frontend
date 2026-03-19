@@ -1,21 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 
 const BACKEND_BASE_URL = process.env.BACKEND_INTERNAL_URL || 'http://16.171.0.139:8000';
 
 async function proxy(req: NextRequest) {
   const url = req.nextUrl.searchParams.get('path') || '';
+  if (!url.startsWith('/')) {
+    return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
+  }
   const target = `${BACKEND_BASE_URL}${url.startsWith('/') ? url : `/${url}`}`;
 
   try {
+    const { getToken } = await auth();
+    const clerkToken = await getToken();
+    const incomingAuth = req.headers.get('authorization');
+
+    const headers: Record<string, string> = {};
+    if (incomingAuth) {
+      headers.Authorization = incomingAuth;
+    } else if (clerkToken) {
+      headers.Authorization = `Bearer ${clerkToken}`;
+    }
+
     const init: RequestInit = {
       method: req.method,
-      headers: {},
+      headers,
     };
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       const body = await req.text();
       init.body = body;
-      (init.headers as Record<string, string>)['Content-Type'] = req.headers.get('content-type') || 'application/json';
+      headers['Content-Type'] = req.headers.get('content-type') || 'application/json';
     }
 
     const res = await fetch(target, init);
