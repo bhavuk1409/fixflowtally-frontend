@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Loader2, RotateCcw, Sparkles, User, Database,
   ArrowUp, TrendingUp, Users, BarChart2, FileText, Lightbulb,
-  Zap, Brain, MessageSquare,
+  Zap, Brain, MessageSquare, History, Trash2, ChevronLeft, Plus,
 } from "lucide-react";
 import { useAppState } from "@/lib/store";
 import { useApi } from "@/lib/useApi";
 import { Topbar } from "@/components/layout/Topbar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { ChatMessage } from "@/lib/api";
+import type { ChatMessage, ChatThread } from "@/lib/api";
 import { useSearchParams } from "next/navigation";
 
 // ── Suggestion categories ─────────────────────────────────────────────────────
@@ -118,7 +118,6 @@ function WelcomeScreen({ onSuggest }: { onSuggest: (q: string) => void }) {
         <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-primary shadow-glow-primary">
           <Brain className="h-9 w-9 text-white" />
         </div>
-        {/* Subtle pulse ring */}
         <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-primary/20" />
         <div className="pointer-events-none absolute -inset-2 rounded-[28px] ring-1 ring-primary/10" />
       </div>
@@ -170,19 +169,113 @@ function WelcomeScreen({ onSuggest }: { onSuggest: (q: string) => void }) {
   );
 }
 
+// ── Thread history sidebar ────────────────────────────────────────────────────
+function ThreadSidebar({
+  threads,
+  activeId,
+  onSelect,
+  onDelete,
+  onNew,
+  onClose,
+}: {
+  threads: ChatThread[];
+  activeId: string | null;
+  onSelect: (t: ChatThread) => void;
+  onDelete: (t: ChatThread) => void;
+  onNew: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ x: -320, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: -320, opacity: 0 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="absolute inset-y-0 left-0 z-20 flex w-72 flex-col border-r border-border bg-card shadow-xl"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-border px-4 py-3.5">
+        <span className="text-sm font-semibold text-foreground">Conversations</span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onNew}
+            title="New conversation"
+            className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onClose}
+            title="Close"
+            className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Thread list */}
+      <div className="flex-1 overflow-y-auto px-2 py-2">
+        {threads.length === 0 ? (
+          <p className="px-3 py-8 text-center text-xs text-muted-foreground">No saved conversations yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-0.5">
+            {threads.map((t) => (
+              <li key={t.id}>
+                <div
+                  className={cn(
+                    "group flex items-start justify-between rounded-lg px-3 py-2.5 text-sm transition",
+                    activeId === t.id
+                      ? "bg-primary/10 text-foreground"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                  )}
+                >
+                  <button
+                    onClick={() => onSelect(t)}
+                    className="flex-1 text-left"
+                  >
+                    <p className="line-clamp-2 text-xs font-medium leading-snug">{t.title}</p>
+                    <p className="mt-0.5 text-2xs text-muted-foreground/60">
+                      {new Date(t.updated_at).toLocaleDateString()}
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => onDelete(t)}
+                    title="Delete conversation"
+                    className="ml-2 mt-0.5 flex-shrink-0 rounded p-1 text-muted-foreground/40 opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AskPage() {
   const { tenantId, companyId } = useAppState();
   const api = useApi();
   const searchParams = useSearchParams();
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [loadingThreads, setLoadingThreads] = useState(false);
+
   const [input, setInput] = useState(searchParams.get("q") ?? "");
   const [streaming, setStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [streamingTools, setStreamingTools] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -195,6 +288,48 @@ export default function AskPage() {
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 140)}px`;
     }
   }, [input]);
+
+  // Load thread list when sidebar opens
+  const loadThreads = useCallback(async () => {
+    if (!tenantId || !companyId) return;
+    setLoadingThreads(true);
+    try {
+      const res = await api.chat.threads.list(tenantId, companyId);
+      setThreads(res.data.threads);
+    } catch {
+      toast.error("Failed to load conversation history");
+    } finally {
+      setLoadingThreads(false);
+    }
+  }, [api, tenantId, companyId]);
+
+  useEffect(() => {
+    if (showSidebar) loadThreads();
+  }, [showSidebar, loadThreads]);
+
+  // Auto-save thread after every complete AI reply
+  const saveThread = useCallback(
+    async (msgs: ChatMessage[]) => {
+      if (!tenantId || !companyId || msgs.length === 0) return;
+      setSaving(true);
+      try {
+        const res = await api.chat.threads.save(
+          tenantId,
+          companyId,
+          msgs,
+          activeThreadId ?? undefined,
+        );
+        setActiveThreadId(res.data.id);
+        // Refresh sidebar list silently
+        if (showSidebar) loadThreads();
+      } catch {
+        // Non-fatal — chat still works, just not saved
+      } finally {
+        setSaving(false);
+      }
+    },
+    [api, tenantId, companyId, activeThreadId, showSidebar, loadThreads],
+  );
 
   const sendMessage = async (userMsg: string) => {
     if (!userMsg.trim() || streaming) return;
@@ -247,10 +382,14 @@ export default function AskPage() {
       }
 
       // Commit streamed message to history
-      setMessages((prev) => [
-        ...prev,
+      const finalMessages: ChatMessage[] = [
+        ...history,
         { role: "assistant", content: accText, tool_calls_made: finalTools },
-      ]);
+      ];
+      setMessages(finalMessages);
+
+      // Persist to backend
+      await saveThread(finalMessages);
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to reach AI CFO");
     } finally {
@@ -258,6 +397,53 @@ export default function AskPage() {
       setStreamingText("");
       setStreamingTools([]);
     }
+  };
+
+  const handleSelectThread = (thread: ChatThread) => {
+    setActiveThreadId(thread.id);
+    setMessages(
+      thread.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        tool_calls_made: m.tool_calls_made,
+      })),
+    );
+    setShowSidebar(false);
+  };
+
+  const handleDeleteThread = async (thread: ChatThread) => {
+    try {
+      await api.chat.threads.delete(tenantId, companyId, thread.id);
+      setThreads((prev) => prev.filter((t) => t.id !== thread.id));
+      if (activeThreadId === thread.id) {
+        setMessages([]);
+        setActiveThreadId(null);
+      }
+      toast.success("Conversation deleted");
+    } catch {
+      toast.error("Failed to delete conversation");
+    }
+  };
+
+  const handleNewConversation = () => {
+    setMessages([]);
+    setActiveThreadId(null);
+    setShowSidebar(false);
+  };
+
+  const handleClearCurrent = async () => {
+    if (activeThreadId) {
+      try {
+        await api.chat.threads.delete(tenantId, companyId, activeThreadId);
+        setThreads((prev) => prev.filter((t) => t.id !== activeThreadId));
+        toast.success("Conversation deleted");
+      } catch {
+        // ignore — still clear the UI
+      }
+    }
+    setMessages([]);
+    setActiveThreadId(null);
+    setStreamingText("");
   };
 
   const handleSend = () => sendMessage(input.trim());
@@ -272,8 +458,32 @@ export default function AskPage() {
   const canSend = input.trim().length > 0 && !streaming;
 
   return (
-    <div className="flex h-[calc(100vh-0px)] flex-col bg-background">
+    <div className="relative flex h-[calc(100vh-0px)] flex-col bg-background overflow-hidden">
       <Topbar title="AI CFO" />
+
+      {/* Thread sidebar overlay */}
+      <AnimatePresence>
+        {showSidebar && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSidebar(false)}
+              className="absolute inset-0 z-10 bg-black/20 backdrop-blur-[2px]"
+            />
+            <ThreadSidebar
+              threads={threads}
+              activeId={activeThreadId}
+              onSelect={handleSelectThread}
+              onDelete={handleDeleteThread}
+              onNew={handleNewConversation}
+              onClose={() => setShowSidebar(false)}
+            />
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Message area */}
       <div className="flex-1 overflow-y-auto">
@@ -298,7 +508,6 @@ export default function AskPage() {
                   <Sparkles className="h-4 w-4 text-white" />
                 </div>
                 <div className="flex max-w-[78%] flex-col gap-1.5">
-                  {/* Tool call badges while streaming */}
                   {streamingTools.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5 mb-1">
                       <Database className="h-3 w-3 text-muted-foreground/60" />
@@ -354,13 +563,24 @@ export default function AskPage() {
 
           {/* Input row */}
           <div className="relative flex items-end gap-2">
+            {/* History button */}
+            <button
+              onClick={() => setShowSidebar(true)}
+              title="Conversation history"
+              className="mb-1.5 flex-shrink-0 rounded-xl p-2 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              <History className="h-4 w-4" />
+            </button>
+
+            {/* Clear / delete current button */}
             {messages.length > 0 && (
               <button
-                onClick={() => { setMessages([]); setStreamingText(""); }}
-                title="Clear conversation"
-                className="mb-1.5 flex-shrink-0 rounded-xl p-2 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+                onClick={handleClearCurrent}
+                title="Delete this conversation"
+                disabled={streaming}
+                className="mb-1.5 flex-shrink-0 rounded-xl p-2 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
               >
-                <RotateCcw className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" />
               </button>
             )}
 
@@ -402,7 +622,13 @@ export default function AskPage() {
           </div>
 
           <p className="text-center text-2xs text-muted-foreground/60">
-            AI CFO uses live Tally data · Responses may contain inaccuracies
+            {saving ? (
+              <span className="inline-flex items-center gap-1">
+                <Loader2 className="h-2.5 w-2.5 animate-spin" /> Saving…
+              </span>
+            ) : (
+              "AI CFO uses live Tally data · Responses may contain inaccuracies"
+            )}
           </p>
         </div>
       </div>

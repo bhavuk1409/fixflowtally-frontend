@@ -198,7 +198,7 @@ function NotificationsSection({
   const items = [
     {
       label: "Weekly report ready",
-      sub: "Get notified when your Monday report is generated",
+      sub: "In-app alert when your Monday report finishes generating",
       enabled: weeklyEnabled,
       onToggle: toggleWeekly,
       loading: saveSettings.isPending,
@@ -392,6 +392,24 @@ export default function SettingsPage() {
                 <motion.div key="reports" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                   <SectionCard icon={Mail} title="Report Recipients" description="Receive weekly reports by email">
                     <div className="space-y-4">
+                      {/* ── Auto-weekly report toggle ── */}
+                      <div className="flex items-center justify-between rounded-xl border border-border bg-secondary px-4 py-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Send weekly report automatically</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Every Monday morning a fresh summary is emailed to the recipient below
+                          </p>
+                        </div>
+                        <Toggle
+                          enabled={settings.data?.reports_enabled ?? true}
+                          onToggle={() =>
+                            saveSettings.mutate({ reports_enabled: !(settings.data?.reports_enabled ?? true) })
+                          }
+                          loading={saveSettings.isPending}
+                        />
+                      </div>
+
+                      {/* ── Recipient email ── */}
                       <div className="flex gap-2">
                         <Input
                           value={emailInput}

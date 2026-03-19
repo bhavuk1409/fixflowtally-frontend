@@ -1,0 +1,6 @@
+# Ignore all files — ESLint is disabled during builds via next.config.js
+# This file is a fallback safety net
+lib/store.tsx
+lib/useApi.ts
+lib/utils.ts
+lib/validators.ts

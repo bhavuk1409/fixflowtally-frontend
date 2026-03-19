@@ -18,6 +18,7 @@ export function useApi() {
     return {
       ...api,
       chat: {
+        ...api.chat,
         stream: (
           tenantId: string,
           companyId: string,

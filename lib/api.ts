@@ -1,65 +1,28 @@
-import axios, { AxiosInstance } from "axios";
+// Replace the existing BASE_URL and clients with a proxy-based fetch that works behind Vercel
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+const PROXY_BASE = "/api/proxy";
 
-/** Build an Axios instance that attaches a Clerk session token as Bearer. */
-export function createApiClient(getToken: () => Promise<string | null>): AxiosInstance {
-  const client = axios.create({
-    baseURL: BASE_URL,
-    timeout: 30_000,
-    // Accept all 2xx status codes (including 201 from /pair/create)
-    validateStatus: (s) => s >= 200 && s < 300,
-  });
-
-  client.interceptors.request.use(async (config) => {
-    try {
-      const token = await getToken();
-      if (token) {
-        config.headers = config.headers ?? {};
-        config.headers["Authorization"] = `Bearer ${token}`;
-      }
-    } catch {
-      // Clerk not ready yet — proceed without token; protected endpoints will 401
-    }
-    return config;
-  });
-
-  client.interceptors.response.use(
-    (res) => res,
-    (err) => {
-      // Surface a clean, human-readable error message
-      const message =
-        err?.response?.data?.detail ??
-        err?.response?.data?.message ??
-        (err?.code === "ECONNABORTED" ? "Request timed out. Is the backend running?" : null) ??
-        (err?.code === "ERR_NETWORK" ? "Cannot reach the backend server. Check your connection." : null) ??
-        err?.message ??
-        "An unexpected error occurred.";
-      return Promise.reject(new Error(message));
+export async function apiFetch(path: string, options: RequestInit = {}) {
+  const url = `${PROXY_BASE}?path=${encodeURIComponent(path)}`;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
     },
-  );
+  });
 
-  return client;
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text || `Request failed with status ${res.status}`);
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return res.json();
+  }
+  return res.text();
 }
-
-/** Un-authed client for public endpoints (health, landing etc.) */
-export const publicClient = axios.create({
-  baseURL: BASE_URL,
-  timeout: 10_000,
-  validateStatus: (s) => s >= 200 && s < 300,
-});
-
-publicClient.interceptors.response.use(
-  (res) => res,
-  (err) => {
-    const message =
-      err?.response?.data?.detail ??
-      (err?.code === "ERR_NETWORK" ? "Cannot reach the backend server." : null) ??
-      err?.message ??
-      "Connection failed.";
-    return Promise.reject(new Error(message));
-  },
-);
 
 // ── Typed response shapes ─────────────────────────────────────────────────────
 
@@ -150,6 +113,7 @@ export interface Report {
   period_to: string;
   status: "queued" | "generating" | "done" | "failed";
   pdf_url: string | null;
+  has_pdf: boolean;
   email_sent_at: string | null;
   created_at: string;
   error: string | null;
@@ -164,6 +128,28 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   tool_calls_made?: string[];
+}
+
+export interface ChatThreadMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  tool_calls_made: string[];
+  position: number;
+}
+
+export interface ChatThread {
+  id: string;
+  tenant_id: string;
+  company_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  messages: ChatThreadMessage[];
+}
+
+export interface ThreadsListResponse {
+  threads: ChatThread[];
 }
 
 export interface ChatResponse {
@@ -228,6 +214,16 @@ export function buildApi(client: AxiosInstance) {
         ),
       get: (tenantId: string, companyId: string, reportId: string) =>
         client.get<Report>(`/reports/${tenantId}/companies/${companyId}/${reportId}`),
+      download: (tenantId: string, companyId: string, reportId: string) =>
+        client.get<Blob>(`/reports/${tenantId}/companies/${companyId}/${reportId}/download`, {
+          responseType: "blob",
+        }),
+      sendEmail: (tenantId: string, companyId: string, reportId: string) =>
+        client.post<{ ok: boolean; to: string }>(
+          `/reports/${tenantId}/companies/${companyId}/${reportId}/send-email`,
+        ),
+      delete: (tenantId: string, companyId: string, reportId: string) =>
+        client.delete(`/reports/${tenantId}/companies/${companyId}/${reportId}`),
     },
 
     chat: {
@@ -258,6 +254,32 @@ export function buildApi(client: AxiosInstance) {
           throw new Error(text || `Chat request failed (${res.status})`);
         }
         return res.body!;
+      },
+
+      threads: {
+        list: (tenantId: string, companyId: string) =>
+          client.get<ThreadsListResponse>(
+            `/chat/${tenantId}/companies/${companyId}/threads`,
+          ),
+        get: (tenantId: string, companyId: string, threadId: string) =>
+          client.get<ChatThread>(
+            `/chat/${tenantId}/companies/${companyId}/threads/${threadId}`,
+          ),
+        save: (
+          tenantId: string,
+          companyId: string,
+          messages: ChatMessage[],
+          threadId?: string,
+          title?: string,
+        ) =>
+          client.post<ChatThread>(
+            `/chat/${tenantId}/companies/${companyId}/threads`,
+            { thread_id: threadId ?? null, title: title ?? null, messages },
+          ),
+        delete: (tenantId: string, companyId: string, threadId: string) =>
+          client.delete(
+            `/chat/${tenantId}/companies/${companyId}/threads/${threadId}`,
+          ),
       },
     },
 
