@@ -18,6 +18,33 @@ import { ConnectTallyEmptyState } from "@/components/ui/empty-state";
 import { CashflowChart, ExpenseBarChart } from "@/components/ui/charts";
 import { cn } from "@/lib/utils";
 
+type PnlLineItem = {
+  category: string;
+  amount: number | string;
+  ledger_name: string;
+};
+
+type CashflowMonth = {
+  year: number;
+  month: number;
+  inflow: number | string;
+  outflow: number | string;
+  net: number | string;
+};
+
+type OutstandingParty = {
+  party_name: string;
+  oldest_date: string;
+  amount: number | string;
+};
+
+type MonthlyChartPoint = {
+  month: string;
+  inflow: number;
+  outflow: number;
+  net: number;
+};
+
 // Section header sub-component
 function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
   return (
@@ -120,10 +147,10 @@ export default function DashboardPage() {
   // Top expense ledgers — from line_items where category is cost/expense
   const expenseLedgers =
     pnl.data?.line_items
-      ?.filter((r) => r.category === "cost_of_goods" || r.category === "direct_expenses" || r.category === "indirect_expenses")
-      .sort((a, b) => Number(b.amount) - Number(a.amount))
+      ?.filter((r: PnlLineItem) => r.category === "cost_of_goods" || r.category === "direct_expenses" || r.category === "indirect_expenses")
+      .sort((a: PnlLineItem, b: PnlLineItem) => Number(b.amount) - Number(a.amount))
       .slice(0, 6)
-      .map((r) => ({ name: r.ledger_name.slice(0, 16), value: Math.abs(Number(r.amount)) })) ?? [];
+      .map((r: PnlLineItem) => ({ name: r.ledger_name.slice(0, 16), value: Math.abs(Number(r.amount)) })) ?? [];
 
   // Build dynamic AI insights
   const income = Number(pnl.data?.total_income ?? 0);
@@ -134,7 +161,7 @@ export default function DashboardPage() {
   const totalPayables = Number(payables.data?.total_outstanding ?? 0);
 
   // Map monthly array to chart-friendly format with a readable month label
-  const monthlyChartData = (cashflow.data?.monthly ?? []).map((m) => ({
+  const monthlyChartData: MonthlyChartPoint[] = (cashflow.data?.monthly ?? []).map((m: CashflowMonth) => ({
     month: new Date(m.year, m.month - 1).toLocaleString("default", { month: "short", year: "2-digit" }),
     inflow: Number(m.inflow),
     outflow: Number(m.outflow),
@@ -355,7 +382,7 @@ export default function DashboardPage() {
                   ) : (receivables.data?.parties ?? []).length === 0 ? (
                     <p className="py-10 text-center text-sm text-muted-foreground">No receivables</p>
                   ) : (
-                    (receivables.data?.parties ?? []).map((row) => (
+                    (receivables.data?.parties ?? []).map((row: OutstandingParty) => (
                       <PartyRow
                         key={row.party_name}
                         party={row.party_name}
@@ -382,7 +409,7 @@ export default function DashboardPage() {
                   ) : (payables.data?.parties ?? []).length === 0 ? (
                     <p className="py-10 text-center text-sm text-muted-foreground">No payables</p>
                   ) : (
-                    (payables.data?.parties ?? []).map((row) => (
+                    (payables.data?.parties ?? []).map((row: OutstandingParty) => (
                       <PartyRow
                         key={row.party_name}
                         party={row.party_name}

@@ -227,7 +227,7 @@ export default function ConnectPage() {
   useEffect(() => {
     if (!storedCompanyId) return;
     api.companies.list(tenantId).then((res) => {
-      const match = res.data.companies.find((c) => c.id === storedCompanyId);
+      const match = res.data.companies.find((c: Company) => c.id === storedCompanyId);
       if (match) {
         setSyncedCompany(match);
         setPaired(true);
@@ -310,7 +310,7 @@ export default function ConnectPage() {
       try {
         const res = await api.companies.list(tenantId);
         const companies = res.data.companies;
-        const freshCompany = companies.find((c) => {
+        const freshCompany = companies.find((c: Company) => {
           if (!c.last_synced_at) return false;
           return new Date(c.last_synced_at).getTime() > codeGeneratedAt;
         });

@@ -157,7 +157,7 @@ export default function ReportsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const reportList = reports.data?.reports ?? [];
+  const reportList: Report[] = reports.data?.reports ?? [];
   const hasReports = reportList.length > 0;
 
   return (
@@ -465,4 +465,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-

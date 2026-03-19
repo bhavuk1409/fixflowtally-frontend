@@ -1,4 +1,35 @@
-// ChatThread type for chat features
+export type Company = {
+  id: string;
+  name: string;
+  tenant_id?: string;
+  last_synced_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ReportStatus = "queued" | "generating" | "done" | "failed";
+
+export type Report = {
+  id: string;
+  tenant_id: string;
+  company_id: string;
+  report_type: string;
+  period_from: string;
+  period_to: string;
+  status: ReportStatus;
+  has_pdf: boolean;
+  email_sent_at?: string | null;
+  error?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  tool_calls_made?: string[];
+};
+
 export type ChatThread = {
   id: string;
   tenant_id: string;
@@ -8,7 +39,7 @@ export type ChatThread = {
   updated_at: string;
   messages: ChatMessage[];
 };
-// Proxy-based fetch helper for backend API calls
+
 export async function apiFetch(path: string, options: RequestInit = {}) {
   const url = `/api/proxy?path=${encodeURIComponent(path)}`;
   const res = await fetch(url, {
@@ -28,16 +59,6 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   }
   return res.text();
 }
-
-// Minimal ChatMessage type for chat API
-export type ChatMessage = {
-  role: "user" | "assistant";
-  content: string;
-  tool_calls_made?: string[];
-};
-// Replace the existing BASE_URL and clients with a proxy-based fetch that works behind Vercel
-
-const PROXY_BASE = "/api/proxy";
 
 export function buildApi() {
   return {
@@ -188,4 +209,3 @@ export function buildApi() {
     },
   };
 }
-// ...existing code...
