@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownLeft,
-  Cable, BarChart3, RefreshCw, Users, CreditCard, Sparkles, FileText,
+  Cable, BarChart3, RefreshCw, Users, CreditCard, Sparkles, FileText, Loader2,
 } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppState } from "@/lib/store";
@@ -17,6 +19,7 @@ import { AiInsightsPanel } from "@/components/ui/ai-insights-panel";
 import { ConnectTallyEmptyState } from "@/components/ui/empty-state";
 import { CashflowChart, ExpenseBarChart } from "@/components/ui/charts";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type PnlLineItem = {
   category: string;
@@ -44,6 +47,67 @@ type MonthlyChartPoint = {
   outflow: number;
   net: number;
 };
+
+type RazorpayHandlerResponse = {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayFailureResponse = {
+  error?: {
+    description?: string;
+    reason?: string;
+  };
+};
+
+type RazorpayCheckoutOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  prefill?: {
+    name?: string;
+    email?: string;
+    contact?: string;
+  };
+  notes?: Record<string, string>;
+  theme?: { color: string };
+  modal?: {
+    ondismiss?: () => void;
+  };
+  handler: (response: RazorpayHandlerResponse) => void | Promise<void>;
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayCheckoutOptions) => {
+      open: () => void;
+      on: (
+        event: "payment.failed",
+        callback: (response: RazorpayFailureResponse) => void,
+      ) => void;
+    };
+  }
+}
+
+const RAZORPAY_CHECKOUT_URL = "https://checkout.razorpay.com/v1/checkout.js";
+
+async function loadRazorpayScript(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (window.Razorpay) return true;
+
+  return await new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = RAZORPAY_CHECKOUT_URL;
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 // Section header sub-component
 function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
@@ -107,6 +171,8 @@ export default function DashboardPage() {
   const { tenantId, companyId, fromIso, toIso, todayIso } = useAppState();
   const api = useApi();
   const router = useRouter();
+  const { isSignedIn, user } = useUser();
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
 
   const enabled = !!companyId;
 
@@ -190,11 +256,107 @@ export default function DashboardPage() {
     }] : []),
   ] : undefined;
 
+  const handleUpgradePlan = async () => {
+    if (!isSignedIn || !user) {
+      toast.message("Sign in to upgrade your plan.");
+      router.push("/sign-in?redirect_url=/app/dashboard");
+      return;
+    }
+
+    setUpgradeLoading(true);
+    try {
+      const scriptReady = await loadRazorpayScript();
+      if (!scriptReady || !window.Razorpay) {
+        throw new Error("Unable to load Razorpay checkout.");
+      }
+
+      const orderRes = await api.payments.createRazorpayOrder(tenantId, {
+        plan_id: "growth",
+        billing_cycle: "monthly",
+        customer_name: user.fullName ?? undefined,
+        customer_email: user.primaryEmailAddress?.emailAddress ?? undefined,
+      });
+      const order = orderRes.data;
+
+      const checkout = new window.Razorpay({
+        key: order.key_id,
+        order_id: order.order_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: order.business_name,
+        description: "Fixflow Growth Plan (₹99/month)",
+        prefill: {
+          name: user.fullName ?? "",
+          email: user.primaryEmailAddress?.emailAddress ?? "",
+        },
+        notes: {
+          tenant_id: tenantId,
+          plan_id: "growth",
+          billing_cycle: "monthly",
+        },
+        theme: { color: "#3B82F6" },
+        modal: {
+          ondismiss: () => {
+            toast.message("Checkout cancelled.");
+          },
+        },
+        handler: async (response) => {
+          try {
+            await api.payments.verifyRazorpayPayment(tenantId, {
+              plan_id: "growth",
+              billing_cycle: "monthly",
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            toast.success("Plan upgraded successfully (₹99/month).");
+          } catch (error) {
+            const message =
+              error instanceof Error
+                ? error.message
+                : "Payment verification failed.";
+            toast.error(message);
+          }
+        },
+      });
+
+      checkout.on("payment.failed", (event) => {
+        const reason = event.error?.description || event.error?.reason || "Payment failed.";
+        toast.error(reason);
+      });
+
+      checkout.open();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to start checkout.";
+      toast.error(message);
+    } finally {
+      setUpgradeLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col">
       <Topbar title="Dashboard" />
 
       <div className="space-y-6 p-6">
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 shadow-card">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Upgrade to Growth</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Unlock full AI CFO features, advanced insights, and priority support for ₹99/month.
+              </p>
+            </div>
+            <button
+              onClick={handleUpgradePlan}
+              disabled={upgradeLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#3B82F6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#2563eb] disabled:opacity-70"
+            >
+              {upgradeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+              Upgrade Plan · ₹99/mo
+            </button>
+          </div>
+        </div>
 
         {/* KPI Cards */}
         {pnl.isLoading ? (

@@ -40,6 +40,44 @@ export type ChatThread = {
   messages: ChatMessage[];
 };
 
+export type RazorpayBillingCycle = "monthly" | "yearly";
+export type RazorpayPlanId = "growth";
+
+export type RazorpayCreateOrderRequest = {
+  plan_id?: RazorpayPlanId;
+  billing_cycle: RazorpayBillingCycle;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
+};
+
+export type RazorpayCreateOrderResponse = {
+  key_id: string;
+  order_id: string;
+  amount: number;
+  currency: string;
+  plan_id: RazorpayPlanId;
+  billing_cycle: RazorpayBillingCycle;
+  business_name: string;
+  description: string;
+};
+
+export type RazorpayVerifyPaymentRequest = {
+  plan_id?: RazorpayPlanId;
+  billing_cycle: RazorpayBillingCycle;
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+};
+
+export type RazorpayVerifyPaymentResponse = {
+  status: "verified";
+  order_id: string;
+  payment_id: string;
+  plan_id: RazorpayPlanId;
+  billing_cycle: RazorpayBillingCycle;
+};
+
 export type ApiResponse<T = any> = {
   data: T;
 };
@@ -224,6 +262,31 @@ export function buildApi() {
           method: "PATCH",
           body: JSON.stringify(data),
         }),
+    },
+
+    payments: {
+      createRazorpayOrder: async (
+        tenantId: string,
+        payload: RazorpayCreateOrderRequest,
+      ) =>
+        apiFetch<RazorpayCreateOrderResponse>(
+          `/payments/${tenantId}/razorpay/order`,
+          {
+            method: "POST",
+            body: JSON.stringify(payload),
+          },
+        ),
+      verifyRazorpayPayment: async (
+        tenantId: string,
+        payload: RazorpayVerifyPaymentRequest,
+      ) =>
+        apiFetch<RazorpayVerifyPaymentResponse>(
+          `/payments/${tenantId}/razorpay/verify`,
+          {
+            method: "POST",
+            body: JSON.stringify(payload),
+          },
+        ),
     },
 
     connector: {

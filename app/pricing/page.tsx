@@ -2,8 +2,82 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Check, Zap, Building2, ArrowRight, HelpCircle } from "lucide-react";
+import { useOrganization, useUser } from "@clerk/nextjs";
+import {
+  Check,
+  Zap,
+  Building2,
+  ArrowRight,
+  HelpCircle,
+  Loader2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { getTenantId } from "@/lib/auth";
+import type { RazorpayBillingCycle } from "@/lib/api";
+import { useApi } from "@/lib/useApi";
+
+type RazorpayHandlerResponse = {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayFailureResponse = {
+  error?: {
+    description?: string;
+    reason?: string;
+  };
+};
+
+type RazorpayCheckoutOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  prefill?: {
+    name?: string;
+    email?: string;
+    contact?: string;
+  };
+  notes?: Record<string, string>;
+  theme?: { color: string };
+  modal?: {
+    ondismiss?: () => void;
+  };
+  handler: (response: RazorpayHandlerResponse) => void | Promise<void>;
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayCheckoutOptions) => {
+      open: () => void;
+      on: (
+        event: "payment.failed",
+        callback: (response: RazorpayFailureResponse) => void,
+      ) => void;
+    };
+  }
+}
+
+const RAZORPAY_CHECKOUT_URL = "https://checkout.razorpay.com/v1/checkout.js";
+
+async function loadRazorpayScript(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (window.Razorpay) return true;
+
+  return await new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = RAZORPAY_CHECKOUT_URL;
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 /* ── Logo mark ─────────────────────────────────────────────────────────── */
 function FixflowMark({ size = 20 }: { size?: number }) {
@@ -40,10 +114,10 @@ const PLANS = [
     id: "growth",
     name: "Growth",
     icon: Building2,
-    monthlyPrice: 999,
-    yearlyPrice: 799,
+    monthlyPrice: 99,
+    yearlyPrice: 79,
     tagline: "For growing businesses",
-    cta: "Start free trial",
+    cta: "Upgrade to Growth",
     ctaHref: "/sign-up",
     highlighted: true,
     badge: "Most popular",
@@ -105,8 +179,96 @@ const FAQ = [
 ];
 
 export default function PricingPage() {
+  const router = useRouter();
+  const api = useApi();
+  const { isSignedIn, user } = useUser();
+  const { organization } = useOrganization();
   const [yearly, setYearly] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+
+  const tenantId = getTenantId(organization?.id, user?.id);
+
+  const handleGrowthCheckout = async () => {
+    if (!isSignedIn || !user) {
+      toast.message("Sign up to continue to secure checkout.");
+      router.push("/sign-up?redirect_url=/pricing");
+      return;
+    }
+
+    const billingCycle: RazorpayBillingCycle = yearly ? "yearly" : "monthly";
+    setCheckoutLoading(true);
+
+    try {
+      const scriptReady = await loadRazorpayScript();
+      if (!scriptReady || !window.Razorpay) {
+        throw new Error("Unable to load Razorpay checkout.");
+      }
+
+      const orderRes = await api.payments.createRazorpayOrder(tenantId, {
+        plan_id: "growth",
+        billing_cycle: billingCycle,
+        customer_name: user.fullName ?? undefined,
+        customer_email: user.primaryEmailAddress?.emailAddress ?? undefined,
+      });
+      const order = orderRes.data;
+
+      const checkout = new window.Razorpay({
+        key: order.key_id,
+        order_id: order.order_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: order.business_name,
+        description: order.description,
+        prefill: {
+          name: user.fullName ?? "",
+          email: user.primaryEmailAddress?.emailAddress ?? "",
+        },
+        notes: {
+          tenant_id: tenantId,
+          plan_id: "growth",
+          billing_cycle: billingCycle,
+        },
+        theme: { color: "#3B82F6" },
+        modal: {
+          ondismiss: () => {
+            toast.message("Checkout cancelled.");
+          },
+        },
+        handler: async (response) => {
+          try {
+            await api.payments.verifyRazorpayPayment(tenantId, {
+              plan_id: "growth",
+              billing_cycle: billingCycle,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            toast.success("Payment verified successfully.");
+            router.push("/app/settings");
+          } catch (error) {
+            const message =
+              error instanceof Error
+                ? error.message
+                : "Payment verification failed.";
+            toast.error(message);
+          }
+        },
+      });
+
+      checkout.on("payment.failed", (event) => {
+        const reason = event.error?.description || event.error?.reason || "Payment failed.";
+        toast.error(reason);
+      });
+
+      checkout.open();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to start checkout.";
+      toast.error(message);
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0B0F14] text-[#E6EDF3]">
@@ -231,17 +393,33 @@ export default function PricingPage() {
               </div>
 
               {/* CTA */}
-              <Link
-                href={plan.ctaHref}
-                className={`mb-8 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all ${
-                  plan.highlighted
-                    ? "bg-[#3B82F6] text-white hover:bg-[#2563eb] shadow-[0_0_0_1px_rgba(59,130,246,0.4),0_4px_20px_rgba(59,130,246,0.2)]"
-                    : "border border-[#2A3340] bg-[#1B2430] text-[#C8D6E5] hover:border-[#3B82F6]/30 hover:bg-[#1F2D3D] hover:text-white"
-                }`}
-              >
-                {plan.cta}
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+              {plan.id === "growth" ? (
+                <button
+                  onClick={handleGrowthCheckout}
+                  disabled={checkoutLoading}
+                  className={`mb-8 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all disabled:opacity-70 ${
+                    plan.highlighted
+                      ? "bg-[#3B82F6] text-white hover:bg-[#2563eb] shadow-[0_0_0_1px_rgba(59,130,246,0.4),0_4px_20px_rgba(59,130,246,0.2)]"
+                      : "border border-[#2A3340] bg-[#1B2430] text-[#C8D6E5] hover:border-[#3B82F6]/30 hover:bg-[#1F2D3D] hover:text-white"
+                  }`}
+                >
+                  {checkoutLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  {isSignedIn ? plan.cta : "Sign up to upgrade"}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              ) : (
+                <Link
+                  href={plan.ctaHref}
+                  className={`mb-8 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all ${
+                    plan.highlighted
+                      ? "bg-[#3B82F6] text-white hover:bg-[#2563eb] shadow-[0_0_0_1px_rgba(59,130,246,0.4),0_4px_20px_rgba(59,130,246,0.2)]"
+                      : "border border-[#2A3340] bg-[#1B2430] text-[#C8D6E5] hover:border-[#3B82F6]/30 hover:bg-[#1F2D3D] hover:text-white"
+                  }`}
+                >
+                  {plan.cta}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              )}
 
               {/* Features */}
               <div className="space-y-3">
