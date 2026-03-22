@@ -13,7 +13,6 @@ const fadeUp = {
 };
 
 const team = [
-  { name: "Bhavuk Agrawal", role: "Founder & CEO", bio: "Building the finance layer every business deserves." },
   { name: "Engineering Team", role: "Backend & Infrastructure", bio: "Obsessed with reliability, speed, and developer experience." },
   { name: "Design Team", role: "Product & UX", bio: "Turning complexity into clarity for every user." },
 ];
