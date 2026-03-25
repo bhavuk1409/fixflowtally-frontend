@@ -43,7 +43,7 @@ export function Topbar({ title }: { title?: string }) {
   const notifications = [
     { id: "n1", title: "Weekly report ready", subtitle: "Your latest report is available in Reports." },
     { id: "n2", title: "Connector synced", subtitle: "Tally data synced successfully." },
-    { id: "n3", title: "Upgrade available", subtitle: "Unlock AI CFO with the Growth plan." },
+    { id: "n3", title: "Free access enabled", subtitle: "All core features are currently available for free." },
   ];
 
   useEffect(() => {
