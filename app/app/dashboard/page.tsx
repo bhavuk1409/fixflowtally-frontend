@@ -6,6 +6,7 @@ import {
   Cable, BarChart3, RefreshCw, Users, Sparkles, FileText, CreditCard,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAppState } from "@/lib/store";
 import { useApi } from "@/lib/useApi";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -105,6 +106,7 @@ function QuickAction({
 export default function DashboardPage() {
   const { tenantId, companyId, fromIso, toIso, todayIso } = useAppState();
   const api = useApi();
+  const router = useRouter();
 
   const enabled = !!companyId;
 
