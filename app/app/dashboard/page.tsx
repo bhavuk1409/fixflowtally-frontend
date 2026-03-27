@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownLeft,
-  Cable, BarChart3, RefreshCw, Users, Sparkles, FileText, CreditCard,
+  PlugZap, BarChart3, RefreshCw, Users, FileText, CreditCard, FileSpreadsheet,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,6 +17,7 @@ import { AiInsightsPanel } from "@/components/ui/ai-insights-panel";
 import { ConnectTallyEmptyState } from "@/components/ui/empty-state";
 import { CashflowChart, ExpenseBarChart } from "@/components/ui/charts";
 import { cn } from "@/lib/utils";
+import { AICfoLogo } from "@/components/ui/ai-cfo-logo";
 
 type PnlLineItem = {
   category: string;
@@ -81,11 +82,13 @@ function PartyRow({
 // Quick action button
 function QuickAction({
   icon: Icon,
+  iconNode,
   label,
   href,
   color,
 }: {
-  icon: React.ElementType;
+  icon?: React.ElementType;
+  iconNode?: React.ReactNode;
   label: string;
   href: string;
   color: string;
@@ -93,13 +96,31 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="group flex flex-col items-center gap-2.5 rounded-xl border border-border bg-card px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-card-dark-hover"
+      className="group relative inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2 text-center shadow-[0_1px_0_rgba(255,255,255,0.03)] transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-secondary hover:shadow-[0_8px_20px_rgba(37,99,235,0.12)]"
     >
-      <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl transition-colors", color)}>
-        <Icon className="h-4 w-4" />
+      <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_20%_0%,rgba(59,130,246,0.12),transparent_55%)] opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+      <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg ring-1 ring-inset transition-colors", color)}>
+        {iconNode ?? (Icon ? <Icon className="h-4 w-4" strokeWidth={1.9} /> : null)}
       </div>
       <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">{label}</span>
     </Link>
+  );
+}
+
+function CashflowPremiumLogo({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={cn("h-4 w-4", className)}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path d="M3 17.5h18" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+      <path d="M5.5 14.5c1.7-2.1 3-2.1 4.7 0 1.7 2.1 3 2.1 4.7 0 1.7-2.1 3-2.1 4.6 0" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+      <path d="M16.7 8.3h3.8v3.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20.5 8.3l-6.2 6.2" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    </svg>
   );
 }
 
@@ -194,7 +215,7 @@ export default function DashboardPage() {
     <div className="flex flex-col">
       <Topbar title="Dashboard" />
 
-      <div className="space-y-6 p-6">
+      <div className="mx-auto w-full max-w-[1320px] space-y-6 px-6 py-6">
         <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 shadow-card">
           <p className="text-sm font-semibold text-foreground">All features are free</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -312,11 +333,11 @@ export default function DashboardPage() {
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Quick Actions
               </h3>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <QuickAction icon={Cable}    label="Connect Tally"    href="/app/connect"   color="bg-primary/10 text-primary group-hover:bg-primary/15" />
-                <QuickAction icon={FileText} label="Generate Report"  href="/app/reports"   color="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400" />
-                <QuickAction icon={Sparkles} label="Ask AI CFO"       href="/app/ask"       color="bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400" />
-                <QuickAction icon={BarChart3} label="View Reports"    href="/app/reports"   color="bg-primary/10 text-primary dark:bg-primary/10 dark:text-primary" />
+              <div className="flex flex-wrap gap-2.5">
+                <QuickAction icon={PlugZap} label="Connect Tally" href="/app/connect" color="bg-blue-500/14 text-blue-500 ring-blue-500/30" />
+                <QuickAction icon={FileSpreadsheet} label="Generate Report" href="/app/reports" color="bg-emerald-500/14 text-emerald-500 ring-emerald-500/30" />
+                <QuickAction iconNode={<AICfoLogo className="h-4 w-4 text-indigo-500" />} label="Ask AI CFO" href="/app/ask" color="bg-indigo-500/14 text-indigo-500 ring-indigo-500/30" />
+                <QuickAction iconNode={<CashflowPremiumLogo className="text-cyan-500" />} label="View Reports" href="/app/reports" color="bg-cyan-500/14 text-cyan-500 ring-cyan-500/30" />
               </div>
             </div>
 

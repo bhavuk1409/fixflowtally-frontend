@@ -199,6 +199,80 @@
   box-shadow: none !important;
 }
 
+/* UserButton popover polish + hide Clerk branding footer (CSS only) */
+.cl-userButtonPopoverCard {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18) !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+}
+
+.cl-userButtonPopoverMain,
+.cl-userButtonPopoverActionButton,
+.cl-userButtonPopoverActionButtonText,
+.cl-userPreviewMainIdentifier,
+.cl-userPreviewSecondaryIdentifier {
+  color: hsl(var(--foreground)) !important;
+  opacity: 1 !important;
+}
+
+.cl-userButtonPopoverActionButton:hover,
+.cl-userButtonPopoverActionButton:focus-visible {
+  background: hsl(var(--secondary)) !important;
+}
+
+.cl-userButtonPopoverActionButtonIcon,
+.cl-userPreviewTextContainer,
+.cl-userPreviewMainIdentifier,
+.cl-userPreviewSecondaryIdentifier {
+  color: hsl(var(--foreground)) !important;
+  fill: hsl(var(--foreground)) !important;
+  opacity: 1 !important;
+}
+
+.cl-userButtonPopoverActions,
+.cl-userButtonPopoverMain {
+  background: transparent !important;
+}
+
+.cl-userButtonPopoverActionButton {
+  border-top: 1px solid hsl(var(--border) / 0.7) !important;
+}
+
+.dark .cl-userButtonPopoverCard {
+  background: hsl(213 24% 11%) !important;
+  border-color: hsl(213 18% 19%) !important;
+}
+
+.dark .cl-userButtonPopoverActionButton,
+.dark .cl-userButtonPopoverActionButtonText,
+.dark .cl-userButtonPopoverActionButtonIcon,
+.dark .cl-userPreviewMainIdentifier,
+.dark .cl-userPreviewSecondaryIdentifier {
+  color: hsl(210 20% 90%) !important;
+  fill: hsl(210 20% 90%) !important;
+  opacity: 1 !important;
+}
+
+.dark .cl-userButtonPopoverActionButton:hover,
+.dark .cl-userButtonPopoverActionButton:focus-visible {
+  background: hsl(213 20% 16%) !important;
+}
+
+.cl-userButtonPopoverFooter,
+.cl-userButtonPopoverFooterPages,
+.cl-internal-b3fm6y,
+.cl-internal-1dauvpw {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+}
+
 /* ── Gradient text ────────────────────────────────────────────────── */
 .gradient-text {
   background: linear-gradient(135deg, #fff 0%, #9BA7B4 100%);

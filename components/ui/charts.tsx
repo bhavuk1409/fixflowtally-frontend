@@ -96,41 +96,55 @@ interface ExpenseBar { name: string; value: number; }
 
 export function ExpenseBarChart({ data, height = 220 }: { data: ExpenseBar[]; height?: number }) {
   const t = useChartTheme();
+  const formatCompact = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : String(v));
+  const formatName = (name: string) => (name.length > 18 ? `${name.slice(0, 18)}…` : name);
+
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={t.grid} horizontal={false} />
+      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 12, left: 8, bottom: 0 }}>
+        <defs>
+          <linearGradient id="expenseBarFill" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.95} />
+            <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.85} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="2 4" stroke={t.grid} horizontal={false} />
         <XAxis
           type="number"
-          tick={{ fill: t.text, fontSize: 10 }}
+          tick={{ fill: t.text, fontSize: 11 }}
           tickLine={false}
           axisLine={false}
-          tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : String(v)}
+          tickFormatter={formatCompact}
         />
         <YAxis
           type="category"
           dataKey="name"
-          tick={{ fill: t.text, fontSize: 10 }}
+          tick={{ fill: t.text, fontSize: 11 }}
           tickLine={false}
           axisLine={false}
-          width={68}
+          width={112}
+          tickFormatter={formatName}
         />
         <Tooltip
+          cursor={{ fill: "rgba(59,130,246,0.08)" }}
           contentStyle={{
             background: t.tooltip.bg,
             border: `1px solid ${t.tooltip.border}`,
-            borderRadius: 10,
+            borderRadius: 12,
             color: t.tooltip.color,
             fontSize: 12,
+            boxShadow: "0 12px 30px rgba(0,0,0,0.18)",
+            padding: "10px 12px",
           }}
+          labelStyle={{ color: t.tooltip.color, fontWeight: 600, marginBottom: 6 }}
           formatter={(v: number) => [`₹${v.toLocaleString("en-IN")}`, "Amount"]}
         />
         <Bar
           dataKey="value"
-          fill="#3b82f6"
-          radius={[0, 4, 4, 0]}
-          maxBarSize={14}
-          fillOpacity={0.85}
+          fill="url(#expenseBarFill)"
+          radius={[0, 8, 8, 0]}
+          maxBarSize={16}
+          background={{ fill: "hsl(220 13% 91% / 0.28)", radius: 8 }}
         />
       </BarChart>
     </ResponsiveContainer>

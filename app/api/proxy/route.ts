@@ -37,11 +37,25 @@ async function proxy(req: NextRequest) {
     }
 
     const res = await fetch(target, init);
-    const data = await res.text();
+    const contentType = res.headers.get('content-type') || 'application/json';
 
+    // Preserve streaming for SSE chat responses.
+    if (contentType.includes('text/event-stream')) {
+      return new NextResponse(res.body, {
+        status: res.status,
+        headers: {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no',
+        },
+      });
+    }
+
+    const data = await res.text();
     return new NextResponse(data, {
       status: res.status,
-      headers: { 'Content-Type': res.headers.get('content-type') || 'application/json' },
+      headers: { 'Content-Type': contentType },
     });
   } catch (err) {
     console.error('Proxy error:', err);

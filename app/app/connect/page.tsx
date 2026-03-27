@@ -193,8 +193,10 @@ const CONNECTOR_CLOCK_SKEW_TOLERANCE_MS = 2 * 60 * 60 * 1000; // 2h tolerance
 const SLOW_SYNC_HINT_AFTER_MS = 60 * 1000;
 
 function triggerDownload(url: string, filename: string) {
+  const separator = url.includes("?") ? "&" : "?";
+  const cacheBustedUrl = `${url}${separator}v=${Date.now()}`;
   const a = document.createElement("a");
-  a.href = url; a.download = filename; a.rel = "noopener noreferrer";
+  a.href = cacheBustedUrl; a.download = filename; a.rel = "noopener noreferrer";
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
@@ -479,7 +481,7 @@ export default function ConnectPage() {
     if (!pairingData) return;
     navigator.clipboard.writeText(pairingData.code).then(() => {
       setCopied(true);
-      toast.success("Copied to clipboard!");
+      toast.success("Copied to clipboard!", { id: "copied-to-clipboard" });
       setTimeout(() => setCopied(false), 2000);
     });
   }, [pairingData]);
@@ -501,7 +503,7 @@ export default function ConnectPage() {
         )}
       </AnimatePresence>
 
-      <div className="mx-auto w-full max-w-4xl space-y-6 p-6">
+      <div className="mx-auto w-full max-w-[1320px] space-y-6 px-6 py-6">
 
         {/* Page header */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
@@ -554,7 +556,7 @@ export default function ConnectPage() {
           </div>
         </motion.div>
 
-        <div className="grid gap-6 lg:grid-cols-5">
+        <div className="grid gap-6 xl:grid-cols-5">
           {/* Pairing code card — left (3 cols) */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -597,7 +599,7 @@ export default function ConnectPage() {
                         <p className="truncate font-mono text-xs text-muted-foreground">{syncedCompany.id}</p>
                       </div>
                       <button
-                        onClick={() => { navigator.clipboard.writeText(syncedCompany.id); toast.success("Company UUID copied!"); }}
+                        onClick={() => { navigator.clipboard.writeText(syncedCompany.id); toast.success("Company UUID copied!", { id: "company-uuid-copied" }); }}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-card transition hover:border-emerald-400"
                         title="Copy company UUID"
                       >

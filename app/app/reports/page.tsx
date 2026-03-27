@@ -5,8 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Download, RefreshCw, Clock, CheckCircle2, XCircle, Loader2, Mail,
-  FileBarChart2, ReceiptIndianRupee, TrendingUp, Sparkles,
-  Calendar, Plus, Trash2, ArrowUpRight, FileText, Zap,
+  FileBarChart2, ReceiptIndianRupee, TrendingUp,
+  Calendar, Plus, Trash2, ArrowUpRight, FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAppState } from "@/lib/store";
@@ -18,11 +18,34 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Report } from "@/lib/api";
 
+function CashflowPremiumIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path d="M3.5 17.5h17" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+      <path d="M5.2 14.2c1.4-1.8 2.7-1.8 4.1 0 1.4 1.8 2.7 1.8 4.1 0 1.4-1.8 2.7-1.8 4.1 0" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+      <path d="M15.8 8.2h4.2v4.2" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 8.2 13.4 14.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function DeliveryPremiumIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <rect x="4" y="5" width="16" height="14" rx="4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M7.5 13.5h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M12 8.5v10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="m12 8.5 2.3 2.3M12 8.5 9.7 10.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="m12 18.5 2.3-2.3M12 18.5 9.7 16.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // ── Report types config ───────────────────────────────────────────────────────
 const REPORT_TYPES = [
   { id: "weekly",   label: "Weekly Summary", desc: "P&L, cashflow & highlights",  icon: FileBarChart2    },
   { id: "pnl",      label: "Profit & Loss",  desc: "Detailed income & expense",   icon: TrendingUp       },
-  { id: "cashflow", label: "Cash Flow",       desc: "Inflows, outflows, net",      icon: Sparkles         },
+  { id: "cashflow", label: "Cash Flow",      desc: "Inflows, outflows, net",      icon: CashflowPremiumIcon },
   { id: "gst",      label: "GST Summary",    desc: "Tax liability overview",      icon: ReceiptIndianRupee },
 ];
 
@@ -164,7 +187,7 @@ export default function ReportsPage() {
     <div className="flex flex-col min-h-full">
       <Topbar title="Reports" />
 
-      <div className="flex-1 space-y-7 p-6 pb-10">
+      <div className="mx-auto flex w-full max-w-[1320px] flex-1 flex-col space-y-7 px-6 py-6 pb-10">
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <motion.div
@@ -258,7 +281,7 @@ export default function ReportsPage() {
           className="flex items-center gap-3 rounded-xl border border-border bg-secondary/30 px-4 py-3"
         >
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-secondary ring-1 ring-border">
-            <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+            <DeliveryPremiumIcon className="h-3.5 w-3.5 text-muted-foreground" />
           </div>
           <p className="text-sm text-muted-foreground">
             Want reports delivered automatically?{" "}

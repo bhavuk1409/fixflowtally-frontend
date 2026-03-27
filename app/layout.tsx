@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
             <ReactQueryProvider>
               {children}
-              <Toaster richColors position="top-right" />
+              <Toaster richColors position="top-right" closeButton />
             </ReactQueryProvider>
           </ThemeProvider>
         </body>

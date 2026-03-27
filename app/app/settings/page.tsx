@@ -4,12 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Building2, Mail, Plus, Trash2, CheckCircle2, XCircle, Loader2, Save, Wifi,
+  Building2, Mail, Plus, Trash2, Loader2, Save, Wifi,
   Bell, Palette, Moon, Sun, Monitor,
 } from "lucide-react";
 import { useAppState } from "@/lib/store";
 import { useApi } from "@/lib/useApi";
-import { apiFetch } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -18,15 +17,12 @@ import { recipientEmailSchema, companyIdSchema } from "@/lib/validators";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 
-type ConnStatus = "idle" | "checking" | "ok" | "error";
-
 // ── Settings nav items ────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   { id: "appearance", label: "Appearance",     icon: Palette   },
   { id: "company",    label: "Company",        icon: Building2 },
   { id: "reports",    label: "Report Email",   icon: Mail      },
   { id: "notifs",     label: "Notifications",  icon: Bell      },
-  { id: "api",        label: "API & Health",   icon: Wifi      },
 ];
 
 // ── Section card wrapper ──────────────────────────────────────────────────────
@@ -245,7 +241,6 @@ export default function SettingsPage() {
   const [companyInput, setCompanyInput] = useState(companyId);
   const [emailInput, setEmailInput] = useState("");
   const [recipients, setRecipients] = useState<string[]>([]);
-  const [connStatus, setConnStatus] = useState<ConnStatus>("idle");
 
   const settings = useQuery({
     queryKey: ["settings", tenantId],
@@ -289,23 +284,13 @@ export default function SettingsPage() {
     saveSettings.mutate({ report_email: updated[0] ?? null });
   };
 
-  const handleHealthCheck = async () => {
-    setConnStatus("checking");
-    try {
-  await apiFetch("/health", { method: "GET" });
-      setConnStatus("ok");
-    } catch {
-      setConnStatus("error");
-    }
-  };
-
   return (
     <div className="flex flex-col">
       <Topbar title="Settings" />
 
-      <div className="flex min-h-0 flex-1 gap-0">
+      <div className="flex min-h-0 flex-1">
         {/* ── Settings nav sidebar ─────────────────────────────────────── */}
-        <nav className="hidden w-56 shrink-0 border-r border-border bg-card/50 p-4 lg:block">
+        <nav className="hidden w-64 shrink-0 border-r border-border bg-card/40 p-5 lg:block">
           <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
             Settings
           </p>
@@ -315,7 +300,7 @@ export default function SettingsPage() {
                 key={id}
                 onClick={() => setActiveSection(id)}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium text-left transition-all",
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] font-medium text-left transition-all",
                   activeSection === id
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-secondary hover:text-foreground",
@@ -329,8 +314,8 @@ export default function SettingsPage() {
         </nav>
 
         {/* ── Settings content ────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="mx-auto max-w-2xl space-y-5">
+        <div className="flex-1 overflow-y-auto p-6 lg:p-8">
+          <div className="mx-auto w-full max-w-5xl space-y-5">
 
             <AnimatePresence mode="wait">
 
@@ -461,47 +446,6 @@ export default function SettingsPage() {
               {activeSection === "notifs" && (
                 <motion.div key="notifs" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                   <NotificationsSection tenantId={tenantId} settings={settings.data} saveSettings={saveSettings} />
-                </motion.div>
-              )}
-
-              {activeSection === "api" && (
-                <motion.div key="api" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <SectionCard icon={Wifi} title="API Connectivity" description="Verify backend connection">
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={handleHealthCheck}
-                          disabled={connStatus === "checking"}
-                          className="flex items-center gap-2 rounded-xl border border-border bg-secondary px-4 py-2 text-sm font-medium transition hover:border-primary/20 hover:bg-primary/5 disabled:opacity-60"
-                        >
-                          {connStatus === "checking" ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                          ) : (
-                            <Wifi className="h-4 w-4 text-muted-foreground" />
-                          )}
-                          Test Connection
-                        </button>
-                        <AnimatePresence mode="wait">
-                          {connStatus === "ok" && (
-                            <motion.span initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                              <CheckCircle2 className="h-4 w-4" /> Backend reachable
-                            </motion.span>
-                          )}
-                          {connStatus === "error" && (
-                            <motion.span initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-1.5 text-sm font-medium text-red-500">
-                              <XCircle className="h-4 w-4" /> Cannot reach backend
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Endpoint:{" "}
-                        <code className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-xs">
-                          {process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000"}/health
-                        </code>
-                      </p>
-                    </div>
-                  </SectionCard>
                 </motion.div>
               )}
 

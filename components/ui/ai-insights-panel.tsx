@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Brain, TrendingUp, AlertTriangle, Info, ArrowRight, Sparkles } from "lucide-react";
+import { Brain, TrendingUp, AlertTriangle, Info, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Insight {
@@ -19,21 +19,24 @@ interface AiInsightsPanelProps {
 const typeConfig = {
   positive: {
     icon: TrendingUp,
-    bg: "bg-emerald-50 dark:bg-emerald-500/[0.07]",
-    border: "border-emerald-200/60 dark:border-emerald-500/20",
-    icon_color: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-card",
+    border: "border-emerald-500/25",
+    icon_color: "text-emerald-500",
+    icon_chip: "bg-emerald-500/12",
   },
   warning: {
     icon: AlertTriangle,
-    bg: "bg-amber-50 dark:bg-amber-500/[0.07]",
-    border: "border-amber-200/60 dark:border-amber-500/20",
-    icon_color: "text-amber-600 dark:text-amber-400",
+    bg: "bg-card",
+    border: "border-amber-500/25",
+    icon_color: "text-amber-500",
+    icon_chip: "bg-amber-500/12",
   },
   info: {
     icon: Info,
-    bg: "bg-blue-50 dark:bg-blue-500/[0.07]",
-    border: "border-blue-200/60 dark:border-blue-500/20",
-    icon_color: "text-blue-600 dark:text-blue-400",
+    bg: "bg-card",
+    border: "border-blue-500/25",
+    icon_color: "text-blue-500",
+    icon_chip: "bg-blue-500/12",
   },
 };
 
@@ -95,12 +98,9 @@ export function AiInsightsPanel({ insights, isLoading, onAskMore }: AiInsightsPa
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.4 + i * 0.08 }}
-                className={cn(
-                  "flex gap-3 rounded-lg border p-3",
-                  cfg.bg, cfg.border,
-                )}
+                className={cn("flex gap-3 rounded-lg border p-3", cfg.bg, cfg.border)}
               >
-                <div className="mt-0.5 flex-shrink-0">
+                <div className={cn("mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md", cfg.icon_chip)}>
                   <Icon className={cn("h-3.5 w-3.5", cfg.icon_color)} />
                 </div>
                 <div className="min-w-0">
