@@ -557,7 +557,6 @@ export default function LandingPage() {
                 heading: "Company",
                 links: [
                   { label: "About", href: "/about" },
-                  { label: "Careers", href: "/careers" },
                   { label: "Blog", href: "/blog" },
                   { label: "Docs", href: "/docs" },
                   { label: "Privacy", href: "/privacy" },
