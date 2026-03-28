@@ -270,10 +270,11 @@ export default function ConnectPage() {
       return { removed: company, companies: remaining };
     },
     onSuccess: ({ removed, companies }) => {
+      const nextCompanies = companies ?? [];
       setShowDisconnectModal(false);
-      setConnectedCompanies(companies);
+      setConnectedCompanies(nextCompanies);
 
-      if (companies.length === 0) {
+      if (nextCompanies.length === 0) {
         setSyncedCompany(null);
         setPaired(false);
         setPairingData(null);
@@ -287,10 +288,10 @@ export default function ConnectPage() {
         return;
       }
 
-      const currentlySelectedStillExists = syncedCompany && companies.some((c) => c.id === syncedCompany.id);
+      const currentlySelectedStillExists = syncedCompany && nextCompanies.some((c) => c.id === syncedCompany.id);
       const fallback = currentlySelectedStillExists
         ? syncedCompany
-        : (mostRecentCompany(companies) ?? companies[0]);
+        : (mostRecentCompany(nextCompanies) ?? nextCompanies[0]);
       setSyncedCompany(fallback);
       setPaired(true);
       setCompanyId(fallback.id);
