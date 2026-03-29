@@ -13,10 +13,10 @@ Instead of relying on manual reports, Excel exports, or external analysis, FixFl
 Businesses using Tally generate large volumes of financial data but face challenges in extracting meaningful insights.
 
 Key challenges include:
-- Difficulty in understanding complex reports
-- Time-consuming manual analysis
-- Dependence on accountants for insights
-- Lack of real-time visibility into business performance
+- Difficulty in understanding complex reports  
+- Time-consuming manual analysis  
+- Dependence on accountants for insights  
+- Lack of real-time visibility into business performance  
 
 ---
 
@@ -45,17 +45,17 @@ FixFlow bridges the gap between accounting data and business decision-making by 
 
 ## How It Works
 
-1. **Tally Integration**  
-   Connects securely to Tally through a lightweight local connector.
+### 1. Tally Integration
+Connects securely to Tally through a lightweight local connector.
 
-2. **Data Processing**  
-   Extracts and normalizes financial data into structured formats.
+### 2. Data Processing
+Extracts and normalizes financial data into structured formats.
 
-3. **AI Analysis**  
-   Uses a controlled multi-agent system to generate insights based on verified data.
+### 3. AI Analysis
+Uses a controlled multi-agent system to generate insights based on verified data.
 
-4. **User Interaction**  
-   Users ask questions in plain language and receive instant, actionable answers.
+### 4. User Interaction
+Users ask questions in plain language and receive instant, actionable answers.
 
 ---
 
@@ -84,3 +84,76 @@ Empower business owners to make decisions without relying on external experts.
 ---
 
 ## Architecture Overview
+
+```
+Tally (Local Machine)
+        ↓
+Local Connector (Read-only)
+        ↓
+Secure Cloud Ingestion
+        ↓
+Analytics Database (PostgreSQL)
+        ↓
+Controlled Tool Layer (MCP)
+        ↓
+Multi-Agent AI System
+        ↓
+User Interface (Chat-Based)
+```
+
+---
+
+## Core Principles
+
+- Accuracy: All numerical outputs are derived from deterministic queries  
+- Trust: Read-only access with full auditability  
+- Simplicity: Designed for non-technical users  
+- Security: Encrypted data transfer and strict access control  
+
+---
+
+## Target Users
+
+- Small and medium business owners  
+- Accountants and chartered accountants  
+- Traders, wholesalers, and service businesses using Tally  
+
+---
+
+## Differentiation
+
+| Feature | Traditional Tools | FixFlow |
+|--------|------------------|---------|
+| Analysis Speed | Slow | Instant |
+| Skill Requirement | High | Minimal |
+| Output | Reports | Insights |
+| Accuracy | Variable | Deterministic |
+| User Experience | Complex | Simple |
+
+---
+
+## Future Scope
+
+- Predictive analytics and forecasting  
+- Industry benchmarking  
+- Automated alerts and recommendations  
+- CA-focused multi-client dashboards  
+- Integration with compliance workflows  
+
+---
+
+## Getting Started
+
+Instructions for setup and usage will be added soon.
+
+---
+
+## Contributing
+
+Contributions are welcome. Please open an issue or submit a pull request for improvements.
+
+---
+
+## License
+
+This project is currently proprietary. Licensing details will be updated in the future.
