@@ -1,5 +1,7 @@
 # FixFlow - AI Business Analyst for Tally Users
 
+fixflowtally.com
+
 ## Overview
 
 FixFlow is an AI-powered business intelligence platform designed for small and medium enterprises (SMEs) using Tally. It transforms raw accounting data into clear, actionable insights, enabling faster and smarter decision-making.
