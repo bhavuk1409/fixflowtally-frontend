@@ -412,9 +412,6 @@ export default function PricingPage() {
                 </span>
               </p>
             )}
-            <p className="mt-2 text-xs text-muted-foreground">
-              Offers appear only when a Razorpay subscription offer is linked (`offer_id`) for this plan.
-            </p>
           </div>
 
           {settings.isLoading ? (

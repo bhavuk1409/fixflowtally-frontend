@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -12,6 +14,7 @@ import {
   History,
   Lightbulb,
   Loader2,
+  Lock,
   Plus,
   TrendingUp,
   Trash2,
@@ -168,6 +171,13 @@ export default function AskPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const inFlightRef = useRef(false);
+
+  const billingSettings = useQuery({
+    queryKey: ["settings", tenantId],
+    queryFn: () =>
+      api.settings.get(tenantId).then((r) => r.data as { plan_active: boolean; plan_id: string | null }),
+    enabled: !!tenantId,
+  });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -354,6 +364,44 @@ export default function AskPage() {
     setActiveThreadId(null);
     setStreamingText("");
   };
+
+  const isGrowthActive = Boolean(
+    billingSettings.data?.plan_active && billingSettings.data?.plan_id === "growth",
+  );
+  const isAICfoLocked = billingSettings.isSuccess && !isGrowthActive;
+
+  if (isAICfoLocked) {
+    return (
+      <div className="relative flex h-[calc(100vh-0px)] flex-col overflow-hidden bg-background">
+        <Topbar title="AI CFO" />
+        <div className="flex flex-1 items-center justify-center px-4">
+          <div className="w-full max-w-xl rounded-2xl border border-border bg-card p-8 text-center shadow-card">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-warning/20">
+              <Lock className="h-6 w-6 text-warning" />
+            </div>
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">AI CFO is locked</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              AI CFO is available on Growth plan only. Upgrade to unlock AI chat.
+            </p>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <Link
+                href="/pricing"
+                className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+              >
+                Upgrade to Growth
+              </Link>
+              <Link
+                href="/app/dashboard"
+                className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-secondary"
+              >
+                Back to dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const canSend = input.trim().length > 0 && !streaming;
 
