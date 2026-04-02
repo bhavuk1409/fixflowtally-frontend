@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Copy, Check, RefreshCw, Monitor, Apple, AlertCircle, Info,
   ExternalLink, Zap, CheckCircle2, Clock, Download, Wifi, WifiOff, ChevronDown,
-  PartyPopper, Building2, Unplug, ShieldAlert,
+  PartyPopper, Building2, Unplug, ShieldAlert, Lock,
 } from "lucide-react";
 import { useAppState } from "@/lib/store";
 import { useApi } from "@/lib/useApi";
@@ -240,6 +241,17 @@ export default function ConnectPage() {
   const { tenantId: ctxTenantId, companyId: storedCompanyId, setCompanyId } = useAppState();
   const tenantId = ctxTenantId || process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID || "test_tenant";
   const api = useApi();
+
+  // ── Billing / plan check ─────────────────────────────────────────────────
+  const billingSettings = useQuery({
+    queryKey: ["settings", tenantId],
+    queryFn: () =>
+      api.settings.get(tenantId).then((r) => r.data as { plan_active: boolean; plan_id: string | null }),
+    enabled: !!tenantId,
+  });
+  const isGrowthActive = Boolean(
+    billingSettings.data?.plan_active && billingSettings.data?.plan_id === "growth",
+  );
   const [copied, setCopied] = useState(false);
   const [pairingData, setPairingData] = useState<{ code: string; expires_in_seconds: number } | null>(null);
   const [codeExpired, setCodeExpired] = useState(false);
@@ -726,12 +738,27 @@ export default function ConnectPage() {
                     {" "}to see your data.
                   </p>
 
-                  <button
-                    onClick={() => { setSyncedCompany(null); setPairingData(null); setPaired(false); generate.mutate(); }}
-                    className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
-                  >
-                    <Zap className="h-3.5 w-3.5" /> Connect another company
-                  </button>
+                  {/* Connect another company — gated by plan */}
+                  {isGrowthActive ? (
+                    <button
+                      onClick={() => { setSyncedCompany(null); setPairingData(null); setPaired(false); generate.mutate(); }}
+                      className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+                    >
+                      <Zap className="h-3.5 w-3.5" /> Connect another company
+                    </button>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                        <Lock className="h-3.5 w-3.5" /> Multiple companies require Growth plan
+                      </div>
+                      <Link
+                        href="/pricing"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+                      >
+                        Upgrade to Growth
+                      </Link>
+                    </div>
+                  )}
 
                   {/* Divider */}
                   <div className="w-full border-t border-border" />
