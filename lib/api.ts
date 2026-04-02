@@ -389,5 +389,13 @@ export function buildApi() {
       status: async (tenantId: string) =>
         apiFetch(`/connector/status/${tenantId}`, { method: "GET" }),
     },
+
+    auth: {
+      welcome: async (email: string, name?: string) =>
+        apiFetch("/auth/welcome", {
+          method: "POST",
+          body: JSON.stringify({ email, name }),
+        }),
+    },
   };
 }
