@@ -50,6 +50,16 @@ export function lastNDays(n: number): { from: Date; to: Date } {
   return { from, to };
 }
 
+/**
+ * Returns the current Indian financial year: Apr 1 of the current FY → today.
+ * If today is before Apr 1, the FY started in the previous calendar year.
+ */
+export function currentFinancialYear(): { from: Date; to: Date } {
+  const today = new Date();
+  const fyStartYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+  return { from: new Date(fyStartYear, 3, 1), to: today };
+}
+
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

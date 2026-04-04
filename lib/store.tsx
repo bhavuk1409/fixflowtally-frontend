@@ -7,7 +7,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
-import { isoDate, lastNDays } from "./utils";
+import { isoDate, lastNDays, currentFinancialYear } from "./utils";
 import { getTenantId, getCompanyId } from "./auth";
 import { useOrganization, useUser } from "@clerk/nextjs";
 
@@ -59,7 +59,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, [storageKey, user?.id]);
 
   const [dateRange, setDateRangeRaw] = useState<{ from: Date; to: Date }>(
-    () => lastNDays(30),
+    () => currentFinancialYear(),
   );
 
   const setCompanyIdPersist = (id: string) => {
