@@ -1,6 +1,8 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+const DEFAULT_BOOKS_BEGINNING_FROM = "2018-04-01";
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -58,6 +60,15 @@ export function currentFinancialYear(): { from: Date; to: Date } {
   const today = new Date();
   const fyStartYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
   return { from: new Date(fyStartYear, 3, 1), to: today };
+}
+
+export function fullHistoryRange(startIso = DEFAULT_BOOKS_BEGINNING_FROM): { from: Date; to: Date } {
+  const today = new Date();
+  const parsed = new Date(`${startIso}T00:00:00`);
+  return {
+    from: Number.isNaN(parsed.getTime()) ? new Date(`${DEFAULT_BOOKS_BEGINNING_FROM}T00:00:00`) : parsed,
+    to: today,
+  };
 }
 
 export function sleep(ms: number) {

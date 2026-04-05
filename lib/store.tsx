@@ -7,7 +7,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
-import { isoDate, lastNDays, currentFinancialYear } from "./utils";
+import { fullHistoryRange, isoDate } from "./utils";
 import { getTenantId, getCompanyId } from "./auth";
 import { useOrganization, useUser } from "@clerk/nextjs";
 
@@ -59,7 +59,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, [storageKey, user?.id]);
 
   const [dateRange, setDateRangeRaw] = useState<{ from: Date; to: Date }>(
-    () => currentFinancialYear(),
+    () => fullHistoryRange(process.env.NEXT_PUBLIC_DEFAULT_BOOKS_BEGINNING_FROM ?? "2018-04-01"),
   );
 
   const setCompanyIdPersist = (id: string) => {

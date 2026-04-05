@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppState } from "@/lib/store";
 import { useApi } from "@/lib/useApi";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, fullHistoryRange } from "@/lib/utils";
 import { Topbar } from "@/components/layout/Topbar";
 import { KpiSkeleton, ChartSkeleton, TableSkeleton } from "@/components/ui/skeleton";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -132,11 +132,12 @@ function CashflowPremiumLogo({ className }: { className?: string }) {
 }
 
 export default function DashboardPage() {
-  const { tenantId, companyId, setCompanyId, fromIso, toIso, todayIso } = useAppState();
+  const { tenantId, companyId, setCompanyId, dateRange, setDateRange, fromIso, toIso, todayIso } = useAppState();
   const api = useApi();
   const router = useRouter();
   const [showCompanyMenu, setShowCompanyMenu] = useState(false);
   const companyMenuRef = useRef<HTMLDivElement | null>(null);
+  const lastAutoRangeCompanyId = useRef<string>("");
 
   const companies = useQuery({
     queryKey: ["companies", tenantId],
@@ -151,10 +152,10 @@ export default function DashboardPage() {
   });
 
   const companyList = useMemo(
-    () => (companies.data?.companies ?? []) as Array<{ id: string; name: string }>,
+    () => (companies.data?.companies ?? []) as Array<{ id: string; name: string; books_beginning_from?: string | null }>,
     [companies.data?.companies],
   );
-  const activeCompany = companyList.find((c: { id: string; name: string }) => c.id === companyId);
+  const activeCompany = companyList.find((c: { id: string; name: string; books_beginning_from?: string | null }) => c.id === companyId);
   const selectedCompanyId = activeCompany?.id ?? "";
   const enabled = !!selectedCompanyId;
   const isGrowthActive = Boolean(
@@ -166,11 +167,24 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!companies.isSuccess) return;
     if (!companyId) return;
-    const exists = companyList.some((c: { id: string; name: string }) => c.id === companyId);
+    const exists = companyList.some((c: { id: string; name: string; books_beginning_from?: string | null }) => c.id === companyId);
     if (!exists) {
       setCompanyId("");
     }
   }, [companies.isSuccess, companyId, companyList, setCompanyId]);
+
+  useEffect(() => {
+    if (!selectedCompanyId || !activeCompany) return;
+    if (lastAutoRangeCompanyId.current === selectedCompanyId) return;
+    lastAutoRangeCompanyId.current = selectedCompanyId;
+    const nextRange = fullHistoryRange(activeCompany.books_beginning_from ?? "2018-04-01");
+    const sameRange =
+      dateRange.from.toISOString().slice(0, 10) === nextRange.from.toISOString().slice(0, 10) &&
+      dateRange.to.toISOString().slice(0, 10) === nextRange.to.toISOString().slice(0, 10);
+    if (!sameRange) {
+      setDateRange(nextRange);
+    }
+  }, [activeCompany, dateRange.from, dateRange.to, selectedCompanyId, setDateRange]);
 
   const pnl = useQuery({
     queryKey: ["pnl", tenantId, selectedCompanyId, fromIso, toIso],
@@ -202,7 +216,16 @@ export default function DashboardPage() {
   const hasNoData =
     (!enabled && !pnl.isLoading) ||
     pnl.isError ||
-    (enabled && pnl.isSuccess && !pnl.data?.total_income && !pnl.data?.cost_of_goods);
+    (
+      enabled &&
+      pnl.isSuccess &&
+      !Number(pnl.data?.total_income ?? 0) &&
+      !Number(pnl.data?.cost_of_goods ?? 0) &&
+      !Number(pnl.data?.direct_expenses ?? 0) &&
+      !Number(pnl.data?.indirect_expenses ?? 0) &&
+      !Number(pnl.data?.net_profit ?? 0) &&
+      !(pnl.data?.line_items?.length ?? 0)
+    );
 
   // Show loading skeletons while enabled but data hasn't arrived yet
   const isLoading = enabled && (pnl.isLoading || pnl.isFetching);
@@ -210,7 +233,7 @@ export default function DashboardPage() {
   // Top expense ledgers — from line_items where category is cost/expense
   const expenseLedgers =
     pnl.data?.line_items
-      ?.filter((r: PnlLineItem) => r.category === "cost_of_goods" || r.category === "direct_expenses" || r.category === "indirect_expenses")
+      ?.filter((r: PnlLineItem) => r.category === "cost_of_goods" || r.category === "direct_expense" || r.category === "indirect_expense")
       .sort((a: PnlLineItem, b: PnlLineItem) => Number(b.amount) - Number(a.amount))
       .slice(0, 6)
       .map((r: PnlLineItem) => ({ name: r.ledger_name.slice(0, 16), value: Math.abs(Number(r.amount)) })) ?? [];

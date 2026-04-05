@@ -2,6 +2,7 @@ export type Company = {
   id: string;
   name: string;
   tenant_id?: string;
+  books_beginning_from?: string | null;
   last_synced_at?: string | null;
   created_at?: string;
   updated_at?: string;
